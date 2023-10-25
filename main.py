@@ -5,15 +5,24 @@ import string
 import threading
 import zipfile
 from time import sleep
+import re
+import time
+from queue import Queue
+from random import shuffle
+import os
 app = Flask(__name__)
 
-
+passwords = Queue()
 finalpass = None
 threads = []
 tests = 0
+filename = ''
+zf = None
 
 
-def generate(len=3, dig=True, lw=False, up=False,  sp=False):
+def generate(len=3, dig=True, lw=False, up=False,  sp=False, ct=''):
+    if ct != '':
+        return BruteChain(len, list(bytes.fromhex(ct).decode('utf-8')))
     if up and lw and dig and sp:
         return BruteChain(len, list(string.printable))
     if up and lw and dig:
@@ -34,57 +43,45 @@ def generate(len=3, dig=True, lw=False, up=False,  sp=False):
         return BruteChain(len, list(string.printable))
 
 
-def calculate(pswdict, filename, stop_ev):
-    print(f'Iniciando hilo con valor 0 de {len(pswdict)}: {pswdict[0]}')
+def timeit(f):
+    """A decorator to print the time a function took to run"""
+    def wrapper(*args, **kwargs):
+        """The wrapper that is run instead of the function"""
+        t0 = time.time()
+        ret = f(*args, **kwargs)
+        t1 = time.time()
+        print('Time spent: {} seconds'.format(t1 - t0))
+        return ret
+    return wrapper
+
+
+def calculate(pswdict, filename):
     zf = zipfile.ZipFile(filename)
+    global finalpass, tests
     for psw in pswdict:
-        global finalpass, tests
         if finalpass != None:
-            print('hilo finalizado')
             break
         try:
-            tests += 1
-            print(tests)
-            zf.extractall(
-                path='/tmp/',
-                pwd=psw.encode())
-            finalpass = psw
-            break
+            zf.setpassword(psw.encode())
+            if zf.testzip() is None:
+                finalpass = psw
+                break
         except:
             pass
-    if finalpass is None:
-        print('No valid password found.')
-        return
-    else:
-        print('Encontrado :'+finalpass)
-        stop_ev.set()
-        return
 
 
-def createThreads(iterables, filename, stop_ev):
+def createThreads(limit):
     global threads
-    for it in iterables:
-        thread = threading.Thread(target=calculate, args=[
-            it, filename, stop_ev])
+    for _ in range(1, limit):
+        thread = threading.Thread(target=worker, args=(_,), daemon=True)
+        thread.start()
         threads.append(thread)
 
 
 def joinThreads():
     global threads
     for thread in threads:
-        sleep(0.2)
         thread.join()
-
-
-def initThreads():
-    global threads
-    global finalpass
-    global tests
-    tests = 0
-    finalpass = None
-    for thread in threads:
-        sleep(0.2)
-        thread.start()
 
 
 def split(a, n):
@@ -92,37 +89,38 @@ def split(a, n):
     return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
 
 
-def startThreads(iterable, filename, stop_ev):
-    pssses = list(iterable)
-    length = len(pssses)
+@timeit
+def reorder(iterable):
+    passws = [p for p in list(iterable) if not re.findall(
+        pattern=r'(.)\1{2}|(.)\1{3}|(.)\1{4}|(.)\1{5}|(.)\1{6}|(.)\1{7}|(.)\1{8}', string=p
+    )]
+    shuffle(passws)
+    passwords.queue.extend(passws)
+    print('Filtered')
+
+
+def worker(w):
+    global finalpass, zf, filename
+    while not passwords.empty():
+        password = passwords.get()
+        try:
+            zf.extractall(
+                path='/tmp/',
+                pwd=password.encode())
+            finalpass = password
+            with passwords.mutex:
+                passwords.all_tasks_done()
+                passwords.queue.clear()
+            return
+        except:
+            pass
+        pass
+
+
+def startThreads():
+    length = passwords.qsize()
     print(f'Dict size {length}')
-    sleep(1)
-    if length < 16000:
-        createThreads([pssses], filename, stop_ev)
-    if length < 32000:
-        iterables = list(split(pssses, 4))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 32000 and length < 64000:
-        iterables = list(split(pssses, 8))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 64000 and length < 128000:
-        iterables = list(split(pssses, 16))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 256000 and length < 512000:
-        iterables = list(split(pssses, 32))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 512000 and length < 1024000:
-        iterables = list(split(pssses, 64))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 2048000 and length < 4096000:
-        iterables = list(split(pssses, 128))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 4096000 and length < 8192000:
-        iterables = list(split(pssses, 256))
-        createThreads(iterables, filename, stop_ev)
-    if length >= 8192000:
-        iterables = list(split(pssses, 256))
-        createThreads(iterables, filename, stop_ev)
+    createThreads(32)
 
 
 def iftr(string):
@@ -134,72 +132,29 @@ def iftr(string):
 
 @ app.route('/bruteforce/', methods=['POST'])
 def bruteforce():
-    global threads
+    global threads, filename, zf, finalpass
+    finalpass = None
     threads = []
     print('starts')
-    stop_ev = threading.Event()
     file = request.files['file']
     typee = request.form['type']
     argum = json.loads(typee)
-    passwords_dict = generate(
+    reorder(iterable=generate(
         len=int(argum['len']),
         dig=iftr(argum['dig']),
         lw=iftr(argum['lw']),
         up=iftr(argum['up']),
-        sp=iftr(argum['sp'])
-    )
+        sp=iftr(argum['sp']),
+        ct=argum['ct']
+    ))
     filename = './uploads/' + file.filename
     file.save(filename)
-    startThreads(passwords_dict, filename, stop_ev)
-    initThreads()
-    if stop_ev.set():
-        joinThreads()
+    zf = zipfile.ZipFile(filename, 'r')
+    startThreads()
+    joinThreads()
     print(f'Enviando clave al servidor: {finalpass}')
     return {
         "password": finalpass
-    }
-
-
-@ app.route('/brutesingle/', methods=['POST'])
-def brutesingle():
-    print('Starting process')
-    file = request.files['file']
-    typee = request.form['type']
-    argum = json.loads(typee)
-    print(argum)
-    print(
-        int(argum['len']),
-        iftr(argum['dig']),
-        iftr(argum['lw']),
-        iftr(argum['up']),
-        iftr(argum['sp']))
-    passwords_dict = generate(
-        len=int(argum['len']),
-        dig=iftr(argum['dig']),
-        lw=iftr(argum['lw']),
-        up=iftr(argum['up']),
-        sp=iftr(argum['sp'])
-    )
-    filename = './uploads/' + file.filename
-    file.save(filename)
-    zf = zipfile.ZipFile(filename, metadata_encoding=None)
-    finalpassw = None
-    for psw in passwords_dict:
-        try:
-            print(psw)
-            zf.extractall(
-                path='/tmp/',
-                pwd=psw.encode())
-            finalpassw = psw
-            break
-        except:
-            pass
-    if finalpassw is None:
-        print('No valid password found.')
-    else:
-        print(f'Password found {finalpassw}')
-    return {
-        "password": finalpassw
     }
 
 
