@@ -4,12 +4,12 @@ from brutesleuth import BruteChain
 import string
 import threading
 import zipfile
-from time import sleep
 import re
 import time
 from queue import Queue
 from random import shuffle
-import os
+
+
 app = Flask(__name__)
 
 passwords = Queue()
@@ -158,4 +158,4 @@ def bruteforce():
     }
 
 
-app.run(debug=True)
+app.run()
