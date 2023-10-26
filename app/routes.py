@@ -119,7 +119,7 @@ def worker(w):
 def startThreads():
     length = passwords.qsize()
     print(f'Dict size {length}')
-    createThreads(32)
+    createThreads(4)
 
 
 def iftr(string):
