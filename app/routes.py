@@ -1,5 +1,5 @@
-from flask import Flask, request
-from flask_cors import CORS, cross_origin
+from flask import request, Blueprint
+from flask_cors import cross_origin
 import json
 from brutesleuth import BruteChain
 import string
@@ -10,10 +10,7 @@ import time
 from queue import Queue
 from random import shuffle
 
-
-app = Flask(__name__)
-cors = CORS(app)
-app.config['CORS_HEADERS'] = 'Content-Type'
+main = Blueprint('main', __name__)
 passwords = Queue()
 finalpass = None
 threads = []
@@ -132,7 +129,7 @@ def iftr(string):
         return False
 
 
-@app.route('/bruteforce/', methods=['POST'])
+@main.route('/bruteforce/', methods=['POST'])
 @cross_origin()
 def bruteforce():
     global threads, filename, zf, finalpass
@@ -159,3 +156,4 @@ def bruteforce():
     return {
         "password": finalpass
     }
+
