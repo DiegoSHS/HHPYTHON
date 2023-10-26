@@ -147,7 +147,7 @@ def bruteforce():
         sp=iftr(argum['sp']),
         ct=argum['ct']
     ))
-    filename = './uploads/' + file.filename
+    filename = './app/uploads/' + file.filename
     file.save(filename)
     zf = zipfile.ZipFile(filename, 'r')
     startThreads()
