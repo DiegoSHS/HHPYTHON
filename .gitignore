@@ -1,2 +1,3 @@
 *.zip
 *.gitignore
+/__pycache__
