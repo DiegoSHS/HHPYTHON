@@ -19,29 +19,6 @@ filename = ''
 zf = None
 
 
-def generate(len=3, dig=True, lw=False, up=False,  sp=False, ct=''):
-    if ct != '':
-        return BruteChain(len, list(bytes.fromhex(ct).decode('utf-8')))
-    if up and lw and dig and sp:
-        return BruteChain(len, list(string.printable))
-    if up and lw and dig:
-        return BruteChain(len, list(string.ascii_letters+string.digits))
-    if up and lw:
-        return BruteChain(len, list(string.ascii_letters))
-    if up and dig:
-        return BruteChain(len, list(string.ascii_uppercase+string.digits))
-    if lw and dig:
-        return BruteChain(len, list(string.ascii_lowercase+string.digits))
-    if up:
-        return BruteChain(len, list(string.ascii_uppercase))
-    if lw:
-        return BruteChain(len, list(string.ascii_lowercase))
-    if dig:
-        return BruteChain(len, list(range(0, 10)))
-    else:
-        return BruteChain(len, list(string.printable))
-
-
 def timeit(f):
     """A decorator to print the time a function took to run"""
     def wrapper(*args, **kwargs):
@@ -88,16 +65,6 @@ def split(a, n):
     return (a[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(n))
 
 
-@timeit
-def reorder(iterable):
-    passws = [p for p in list(iterable) if not re.findall(
-        pattern=r'(.)\1{2}|(.)\1{3}|(.)\1{4}|(.)\1{5}|(.)\1{6}|(.)\1{7}|(.)\1{8}', string=p
-    )]
-    shuffle(passws)
-    passwords.queue.extend(passws)
-    print('Filtered')
-
-
 def worker(w):
     global finalpass, zf, filename
     while not passwords.empty():
@@ -129,6 +96,39 @@ def iftr(string):
         return False
 
 
+@timeit
+def reorder(iterable):
+    passws = [p for p in list(iterable) if not re.findall(
+        pattern=r'(.)\1{2}|(.)\1{3}|(.)\1{4}|(.)\1{5}|(.)\1{6}|(.)\1{7}|(.)\1{8}', string=p
+    )]
+    shuffle(passws)
+    passwords.queue.extend(passws)
+    print('Filtered')
+
+
+def generate(len=3, dig=True, lw=False, up=False,  sp=False, ct=''):
+    if ct != '':
+        return BruteChain(len, list(bytes.fromhex(ct).decode('utf-8')))
+    if up and lw and dig and sp:
+        return BruteChain(len, list(string.printable))
+    if up and lw and dig:
+        return BruteChain(len, list(string.ascii_letters+string.digits))
+    if up and lw:
+        return BruteChain(len, list(string.ascii_letters))
+    if up and dig:
+        return BruteChain(len, list(string.ascii_uppercase+string.digits))
+    if lw and dig:
+        return BruteChain(len, list(string.ascii_lowercase+string.digits))
+    if up:
+        return BruteChain(len, list(string.ascii_uppercase))
+    if lw:
+        return BruteChain(len, list(string.ascii_lowercase))
+    if dig:
+        return BruteChain(len, list(range(0, 10)))
+    else:
+        return BruteChain(len, list(string.printable))
+
+
 @main.route('/bruteforce/', methods=['POST'])
 @cross_origin()
 def bruteforce():
@@ -156,4 +156,3 @@ def bruteforce():
     return {
         "password": finalpass
     }
-
