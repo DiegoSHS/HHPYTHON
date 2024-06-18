@@ -112,26 +112,29 @@ def generate_dictionary(
         )))
 
 
+def worker(correct_password:dict, zip_file: ZipFile, passwords_queue:Queue):
+    """The worker function for the bruteforce attack"""
+    while not passwords_queue.empty():
+        password = passwords_queue.get()
+        try:
+            zip_file.extractall(
+                path='/tmp/',
+                pwd=password.encode())
+            correct_password.update(password=password)
+            with passwords_queue.mutex:
+                passwords_queue.all_tasks_done()
+                passwords_queue.queue.clear()
+            return
+        except error:
+            pass
+
+
 @main.route('/bruteforce/', methods=['POST'])
 @cross_origin()
 def bruteforce():
     """The route for the bruteforce attack on a zip file"""
     passwords = Queue()
     correct_password = {"password":""}
-    def worker(correct_password:dict, zip_file: ZipFile, passwords_queue:Queue):
-        while not passwords_queue.empty():
-            password = passwords_queue.get()
-            try:
-                zip_file.extractall(
-                    path='/tmp/',
-                    pwd=password.encode())
-                correct_password.update(password=password)
-                with passwords_queue.mutex:
-                    passwords_queue.all_tasks_done()
-                    passwords_queue.queue.clear()
-                return
-            except error:
-                pass
 
     print('starts')
     file = request.files['file']
