@@ -69,34 +69,47 @@ def reorder(iterable, passwords_queue:Queue):
     print('Filtered')
 
 
-def generate_dictionary(
-    length=3,
+def get_dict_option(
     digits=True,
     lowercase=False,
     uppercase=False,
-    marks=False,
+    marks=False
+    ):
+    """Get the dictionary option for the bruteforce attack"""
+    option = string.printable if digits and lowercase and uppercase and marks else ''
+    if uppercase and lowercase and digits:
+        option = string.ascii_letters+string.digits
+    if uppercase and lowercase:
+        option = string.ascii_letters
+    if uppercase and digits:
+        option = string.ascii_uppercase+string.digits
+    if lowercase and digits:
+        option = string.ascii_lowercase+string.digits
+    if uppercase:
+        option = string.ascii_uppercase
+    if lowercase:
+        option = string.ascii_lowercase
+    if digits:
+        option = range(0, 10)
+    return option
+
+def generate_dictionary(
+    arguments,
+    length=3,
     custom_string=''
     ):
     """Generate a dictionary for the bruteforce attack on a zip file"""
+    digits=iftr(arguments['dig'])
+    lowercase=iftr(arguments['lw'])
+    uppercase=iftr(arguments['up'])
+    marks=iftr(arguments['sp'])
     if custom_string != '':
         return BruteChain(length, list(bytes.fromhex(custom_string).decode('utf-8')))
-    if uppercase and lowercase and digits and marks:
-        return BruteChain(length, list(string.printable))
-    if uppercase and lowercase and digits:
-        return BruteChain(length, list(string.ascii_letters+string.digits))
-    if uppercase and lowercase:
-        return BruteChain(length, list(string.ascii_letters))
-    if uppercase and digits:
-        return BruteChain(length, list(string.ascii_uppercase+string.digits))
-    if lowercase and digits:
-        return BruteChain(length, list(string.ascii_lowercase+string.digits))
-    if uppercase:
-        return BruteChain(length, list(string.ascii_uppercase))
-    if lowercase:
-        return BruteChain(length, list(string.ascii_lowercase))
-    if digits:
-        return BruteChain(length, list(range(0, 10)))
-    return BruteChain(length, list(string.printable))
+    return BruteChain(length, list(get_dict_option(
+        digits=digits, lowercase=lowercase,
+        uppercase=uppercase,
+        marks=marks
+        )))
 
 
 @main.route('/bruteforce/', methods=['POST'])
@@ -125,11 +138,8 @@ def bruteforce():
     password_type = request.form['type']
     arguments = json.loads(password_type)
     new_passwords = generate_dictionary(
+        arguments=arguments,
         length=int(arguments['len']),
-        digits=iftr(arguments['dig']),
-        lowercase=iftr(arguments['lw']),
-        uppercase=iftr(arguments['up']),
-        marks=iftr(arguments['sp']),
         custom_string=arguments['ct']
         )
     reorder(
