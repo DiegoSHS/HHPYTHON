@@ -4,7 +4,7 @@ import time
 import json
 import string
 import re
-import threading
+from threading import Thread
 from queue import Queue
 from random import shuffle
 from zipfile import ZipFile, error
@@ -17,9 +17,9 @@ def timeit(function):
     """A decorator to print the time a function took to run"""
     def wrapper(*args, **kwargs):
         """The wrapper that is run instead of the function"""
-        start_time = time.time()
+        start_time: float = time.time()
         updated_function = function(*args, **kwargs)
-        end_time = time.time()
+        end_time: float = time.time()
         print(f'Time spent: {end_time - start_time} seconds')
         return updated_function
     return wrapper
@@ -27,9 +27,9 @@ def timeit(function):
 
 def setup_threads(function,limit:int):
     """Setup threads for the function passed in the arguments"""
-    threads = []
+    threads: list = []
     for _ in range(1, limit):
-        thread = threading.Thread(target=function, args=(_,), daemon=True)
+        thread: Thread = Thread(target=function, args=(_,), daemon=True)
         thread.start()
         threads.append(thread)
     return threads
@@ -42,7 +42,7 @@ def join_threads(threads:list):
 
 def start_threads(passwords_queue:Queue,function):
     """Start the threads for the function passed in the arguments"""
-    length = passwords_queue.qsize()
+    length: int = passwords_queue.qsize()
     print(f'Dict size {length}')
     return setup_threads(limit=4,function=function)
 
@@ -61,7 +61,7 @@ def iftr(text:string):
 @timeit
 def reorder(iterable, passwords_queue:Queue):
     """Reorder the dictionary to filter out the passwords that are not valid"""
-    pass_words = [p for p in list(iterable) if not re.findall(
+    pass_words: list = [p for p in list(iterable) if not re.findall(
         pattern=r'(.)\1{2}|(.)\1{3}|(.)\1{4}|(.)\1{5}|(.)\1{6}|(.)\1{7}|(.)\1{8}', string=p
     )]
     shuffle(pass_words)
@@ -94,15 +94,15 @@ def get_dict_option(
     return option
 
 def generate_dictionary(
-    arguments,
-    length=3,
-    custom_string=''
+    arguments: dict,
+    length: int = 3,
+    custom_string: str = ''
     ):
     """Generate a dictionary for the bruteforce attack on a zip file"""
-    digits=iftr(arguments['dig'])
-    lowercase=iftr(arguments['lw'])
-    uppercase=iftr(arguments['up'])
-    marks=iftr(arguments['sp'])
+    digits: bool = iftr(arguments['dig'])
+    lowercase: bool = iftr(arguments['lw'])
+    uppercase: bool = iftr(arguments['up'])
+    marks: bool = iftr(arguments['sp'])
     if custom_string != '':
         return BruteChain(length, list(bytes.fromhex(custom_string).decode('utf-8')))
     return BruteChain(length, list(get_dict_option(
@@ -115,7 +115,7 @@ def generate_dictionary(
 def worker(correct_password:dict, zip_file: ZipFile, passwords_queue:Queue):
     """The worker function for the bruteforce attack"""
     while not passwords_queue.empty():
-        password = passwords_queue.get()
+        password: str = passwords_queue.get()
         try:
             zip_file.extractall(
                 path='/tmp/',
@@ -133,14 +133,14 @@ def worker(correct_password:dict, zip_file: ZipFile, passwords_queue:Queue):
 @cross_origin()
 def bruteforce():
     """The route for the bruteforce attack on a zip file"""
-    passwords = Queue()
-    correct_password = {"password":""}
+    passwords: Queue = Queue()
+    correct_password: dict = {"password":""}
 
     print('starts')
     file = request.files['file']
     password_type = request.form['type']
-    arguments = json.loads(password_type)
-    new_passwords = generate_dictionary(
+    arguments: dict = json.loads(password_type)
+    new_passwords: BruteChain = generate_dictionary(
         arguments=arguments,
         length=int(arguments['len']),
         custom_string=arguments['ct']
@@ -149,10 +149,10 @@ def bruteforce():
         iterable=new_passwords,
         passwords_queue=passwords
         )
-    filename = './app/uploads/' + file.filename
+    filename: str = './app/uploads/' + file.filename
     file.save(filename)
     with ZipFile(filename, 'r') as zip_file:
-        threads = start_threads(
+        threads: list = start_threads(
             passwords_queue=passwords,
             function=lambda _: worker(
                 zip_file=zip_file,
